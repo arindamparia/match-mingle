@@ -1,5 +1,6 @@
 package com.arindamcreates.matchmingle.model;
 
+import com.arindamcreates.matchmingle.dto.SentRequest;
 import com.arindamcreates.matchmingle.dto.UserRequest;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -13,7 +14,10 @@ import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Getter
 @Setter
@@ -36,6 +40,9 @@ public class User {
     private String tagLine;
     private String summary;
     private String imageUrl;
+    private Set<ObjectId> incomingRequests = new HashSet<>();
+    private Set<ObjectId> outgoingRequests = new HashSet<>();
+    private Set<ObjectId> connections = new HashSet<>();
 
     public static User createUserFrom(UserRequest userRequest) {
 
