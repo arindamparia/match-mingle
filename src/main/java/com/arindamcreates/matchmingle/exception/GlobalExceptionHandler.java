@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -95,6 +96,12 @@ public class GlobalExceptionHandler {
         log.error("Default exception error occurred during invocation of API={} due to error={}",
                 getApiUri(), ex.getMessage(), ex);
         return new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Fatal Exception Invoked");
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ErrorResponse handleAccessDeniedException(AccessDeniedException ex) {
+        return new ErrorResponse(HttpStatus.FORBIDDEN.value(),ex.getMessage());
     }
 
     private static String getApiUri() {

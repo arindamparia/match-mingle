@@ -27,14 +27,7 @@ public class UserRequest {
             message = "Gender cannot contain characters other than M or F")
     private String gender;
 
-    //@NotEmpty(message = "Location cannot be blank")
     private String location="Location";
-
-    @NotEmpty(message = "Email cannot be blank")
-    @Pattern(
-            regexp = "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$",
-            message = "Invalid email format")
-    private String email;
 
     @NotEmpty(message = "Mobile Number cannot be blank")
     @Pattern(regexp = "^[1-9][0-9]{9}$", message = "Mobile must contain 10 digits")

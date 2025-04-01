@@ -1,6 +1,5 @@
 package com.arindamcreates.matchmingle.model;
 
-import com.arindamcreates.matchmingle.dto.SentRequest;
 import com.arindamcreates.matchmingle.dto.UserRequest;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,16 +11,12 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 @Getter
 @Setter
-@Builder
+@Builder(toBuilder = true)
 @AllArgsConstructor
 @NoArgsConstructor
 @Document("User")
@@ -40,22 +35,26 @@ public class User {
     private String tagLine;
     private String summary;
     private String imageUrl;
+    private String password;
+    private String role;
+    private Boolean userLocked;
+    private Boolean userDetailsProvided;
     private Set<ObjectId> incomingRequests = new HashSet<>();
     private Set<ObjectId> outgoingRequests = new HashSet<>();
     private Set<ObjectId> connections = new HashSet<>();
 
-    public static User createUserFrom(UserRequest userRequest) {
+    public static User updateUserFrom(User user, UserRequest userRequest) {
 
-        return User.builder()
+        return user.toBuilder()
                 .firstName(userRequest.getFirstName())
                 .lastName(userRequest.getLastName())
                 .gender(userRequest.getGender().toUpperCase())
                 .location(userRequest.getLocation())
-                .email(userRequest.getEmail())
                 .phone(userRequest.getPhone())
                 .tagLine(userRequest.getTagLine())
                 .summary(userRequest.getSummary())
                 .imageUrl(userRequest.getImageUrl())
+                .userDetailsProvided(true)
                 .build();
     }
 
