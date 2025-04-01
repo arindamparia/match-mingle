@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @AllArgsConstructor
-@RequestMapping("/auth/google")
+@RequestMapping("v1/auth/google")
 public class GoogleAuthController {
     private GoogleAuthService googleAuthService;
     @GetMapping("/callback")
