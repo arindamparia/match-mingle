@@ -6,10 +6,13 @@ import com.arindamcreates.matchmingle.exception.DataAlreadyExistException;
 import com.arindamcreates.matchmingle.exception.DataNotFoundException;
 import com.arindamcreates.matchmingle.model.Connection;
 import com.arindamcreates.matchmingle.model.User;
+import com.arindamcreates.matchmingle.model.VisibilityRequest;
 import com.arindamcreates.matchmingle.repository.ConnectionRepository;
 import com.arindamcreates.matchmingle.repository.UserRepository;
+import com.arindamcreates.matchmingle.repository.VisibilityRequestRepository;
 import com.arindamcreates.matchmingle.utils.AuthUtil;
 import jakarta.validation.Valid;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -23,9 +26,11 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class UserService {
 
+  private static final int BATCH_SIZE = 100;
   private final AuthUtil authUtil;
   private final ConnectionRepository connectionRepository;
   private final UserRepository userRepository;
+  private final VisibilityRequestRepository visibilityRequestRepository;
 
   public User addUserDetails(UserRequest userRequest) {
     String loggedInUserEmail = authUtil.getCurrentUserEmail();
@@ -69,7 +74,7 @@ public class UserService {
           .orElseThrow(() -> new DataNotFoundException(Constants.USER_NOT_FOUND));
     } catch (Exception ex) {
       log.error(Constants.USER_NOT_FOUND);
-      throw new DataAccessResourceFailureException("Constants.CANNOT_SAVE_USER", ex);
+      throw new DataAccessResourceFailureException("Constants.USER_NOT_FOUND", ex);
     }
   }
 
@@ -86,7 +91,8 @@ public class UserService {
             .summary(targetedUser.getSummary())
             .imageUrl(targetedUser.getImageUrl())
             .build();
-    Connection connection = findByUser1AndUser2(loggedInUser.getId(), targetedUser.getId());
+    Connection connection =
+        findConnectionByUser1AndUser2(loggedInUser.getId(), targetedUser.getId());
     if (Boolean.TRUE.equals(connection.getEmailShow())) {
       userResponse = userResponse.toBuilder().email(targetedUser.getEmail()).build();
     }
@@ -115,6 +121,14 @@ public class UserService {
 
   public void showNumber(String id) {
     handleRequestForPermission(id, RequestAction.SHOW_NUMBER);
+  }
+
+  public void requestEmail(String id) {
+    handleRequestForPermission(id, RequestAction.REQUEST_EMAIL);
+  }
+
+  public void requestNumber(String id) {
+    handleRequestForPermission(id, RequestAction.REQUEST_NUMBER);
   }
 
   private void handleRequestForConnection(String id, RequestAction action) {
@@ -153,8 +167,10 @@ public class UserService {
       }
 
       switch (action) {
-        case SHOW_EMAIL -> processShowPermission(loggedInUser, targetedUser, true);
-        case SHOW_NUMBER -> processShowPermission(loggedInUser, targetedUser, false);
+        case REQUEST_EMAIL -> processRequestPermission(loggedInUser, targetedUser, true);
+        case REQUEST_NUMBER -> processRequestPermission(loggedInUser, targetedUser, false);
+        case SHOW_EMAIL -> processShowPermission(targetedUser, loggedInUser, true);
+        case SHOW_NUMBER -> processShowPermission(targetedUser, loggedInUser, false);
       }
     } catch (Exception ex) {
       log.error("Error occurred while processing requested permission: {}", action);
@@ -221,19 +237,62 @@ public class UserService {
 
     sender.getConnections().remove(receiver.getId());
     receiver.getConnections().remove(sender.getId());
-    Connection connection = findByUser1AndUser2(sender.getId(), receiver.getId());
-    connectionRepository.delete(connection);
-    userRepository.save(sender);
-    userRepository.save(receiver);
+    Connection connection = findConnectionByUser1AndUser2(sender.getId(), receiver.getId());
+    try {
+      Optional<List<VisibilityRequest>> visibilityRequestOptional =
+          findVisibilityRequestsByUser1AndUser2(sender.getId(), receiver.getId());
+      if (visibilityRequestOptional.isPresent() && !visibilityRequestOptional.get().isEmpty())
+        visibilityRequestRepository.deleteAll(visibilityRequestOptional.get());
+      connectionRepository.delete(connection);
+      userRepository.save(sender);
+      userRepository.save(receiver);
+    } catch (DataAccessResourceFailureException ex) {
+      log.error("Error occurred while deleting connection");
+      throw ex;
+    }
   }
 
   private void processShowPermission(User sender, User receiver, boolean isEmail) {
-    Connection connection = findByUser1AndUser2(sender.getId(), receiver.getId());
+    VisibilityRequest visibilityRequest =
+        visibilityRequestRepository
+            .findBySenderAndReceiverAndType(
+                sender.getId(), receiver.getId(), isEmail ? "EMAIL" : "PHONE")
+            .orElseThrow(() -> new DataNotFoundException(Constants.REQUEST_NOT_FOUND));
+    Connection connection = findConnectionByUser1AndUser2(sender.getId(), receiver.getId());
     if (isEmail) {
       connection.setEmailShow(true);
     } else {
       connection.setNumberShow(true);
     }
+    visibilityRequestRepository.delete(visibilityRequest);
+    connectionRepository.save(connection);
+  }
+
+  private void processRequestPermission(User sender, User receiver, boolean isEmail) {
+    Connection connection = findConnectionByUser1AndUser2(sender.getId(), receiver.getId());
+    if (isEmail) {
+      if (Boolean.TRUE.equals(connection.getEmailShow())) {
+        throw new DataAlreadyExistException("Email already shared");
+      }
+    } else {
+      if (Boolean.TRUE.equals(connection.getNumberShow())) {
+        throw new DataAlreadyExistException("Phone number already shared");
+      }
+    }
+    if (getVisibilityRequest(sender.getId(), receiver.getId(), isEmail ? "EMAIL" : "PHONE")
+        .isPresent()) {
+      throw new DataAlreadyExistException("Request already exists");
+    }
+    VisibilityRequest visibilityRequest =
+        VisibilityRequest.builder()
+            .sender(sender.getId())
+            .receiver(receiver.getId())
+            .type(
+                isEmail ? VisibilityRequest.RequestType.EMAIL : VisibilityRequest.RequestType.PHONE)
+            .status(VisibilityRequest.RequestStatus.PENDING)
+            .requestTime(LocalDateTime.now())
+            .build();
+    visibilityRequestRepository.save(visibilityRequest);
   }
 
   private String getSelfActionErrorMessage(RequestAction action) {
@@ -242,14 +301,15 @@ public class UserService {
       case ACCEPT -> Constants.CANNOT_SELF_ACCEPT;
       case DENY -> Constants.CANNOT_SELF_DENY;
       case REMOVE -> Constants.CANNOT_SELF_REMOVE;
-      case SHOW_EMAIL, SHOW_NUMBER -> Constants.CANNOT_SELF_PERMISSION;
+      case SHOW_EMAIL, SHOW_NUMBER, REQUEST_EMAIL, REQUEST_NUMBER ->
+          Constants.CANNOT_SELF_PERMISSION;
     };
   }
 
-  private Connection findByUser1AndUser2(ObjectId user1, ObjectId user2) {
+  private Connection findConnectionByUser1AndUser2(ObjectId user1, ObjectId user2) {
     try {
       return connectionRepository
-          .findByUser1AndUser2OrUser2AndUser1(user1, user2, user2, user1)
+          .findByUser1AndUser2(user1, user2)
           .orElseThrow(() -> new DataNotFoundException(Constants.CONNECTION_NOT_FOUND));
     } catch (DataAccessResourceFailureException ex) {
       log.error("Error occurred while fetching connection data");
@@ -257,11 +317,22 @@ public class UserService {
     }
   }
 
+  private Optional<List<VisibilityRequest>> findVisibilityRequestsByUser1AndUser2(
+      ObjectId sender, ObjectId receiver) {
+    return visibilityRequestRepository.findBySenderAndReceiverOrReceiverAndSender(
+        sender, receiver, receiver, sender);
+  }
+
   private void checkUserDoesExist(String email, String phone) {
     Optional<List<User>> existingUserOptional = userRepository.findByEmailOrPhone(email, phone);
     if (existingUserOptional.isPresent() && !existingUserOptional.get().isEmpty()) {
       throw new DataAlreadyExistException("User already exists");
     }
+  }
+
+  private Optional<VisibilityRequest> getVisibilityRequest(
+      ObjectId sender, ObjectId receiver, String type) {
+    return visibilityRequestRepository.findBySenderAndReceiverAndType(sender, receiver, type);
   }
 
   private User updateAndSaveUser(User user, UserRequest userRequest) {
@@ -279,6 +350,8 @@ public class UserService {
     DENY,
     REMOVE,
     SHOW_EMAIL,
-    SHOW_NUMBER
+    SHOW_NUMBER,
+    REQUEST_EMAIL,
+    REQUEST_NUMBER
   }
 }

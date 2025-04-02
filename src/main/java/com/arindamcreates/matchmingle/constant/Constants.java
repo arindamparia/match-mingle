@@ -9,6 +9,7 @@ public class Constants {
   public static final String USER_NOT_DELETED = "User not deleted";
   public static final String USER_NOT_FOUND = "No user exists for the given Id";
   public static final String CONNECTION_NOT_FOUND = "No such connection exists";
+  public static final String VISIBILITY_REQUEST_NOT_FOUND = "No such visibility request exists";
   public static final String REQUEST_NOT_FOUND = "Request not found";
   public static final String CANNOT_SELF_REQUEST = "Cannot send request to self";
   public static final String CANNOT_SELF_ACCEPT = "Cannot accept request from self";
@@ -17,5 +18,6 @@ public class Constants {
   public static final String CANNOT_SELF_PERMISSION = "Cannot give permission to self";
   public static final String CANNOT_SELF_LOCK = "Cannot lock self account";
   public static final String CANNOT_SELF_UNLOCK = "Cannot unlock self account";
+  public static final String CANNOT_SELF_DELETE = "Cannot delete self account";
   public static final String CANNOT_SAVE_USER = "Error occurred while saving user data";
 }

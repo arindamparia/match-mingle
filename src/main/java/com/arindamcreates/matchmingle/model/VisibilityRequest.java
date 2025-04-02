@@ -26,8 +26,8 @@ public class VisibilityRequest {
   @Id
   private ObjectId id;
 
-  private ObjectId requesterId; // User who requested
-  private ObjectId requestedToId; // User who received request
+  private ObjectId sender; // User who requested
+  private ObjectId receiver; // User who received request
 
   private RequestType type; // PHONE or EMAIL
   private RequestStatus status; // PENDING, ACCEPTED, REJECTED

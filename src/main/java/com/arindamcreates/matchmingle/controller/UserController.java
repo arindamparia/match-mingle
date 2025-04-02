@@ -64,4 +64,16 @@ public class UserController {
   public void showNumber(@RequestBody @Valid IdRequest id) {
     userService.showNumber(id.getId());
   }
+
+  @PostMapping("/request-number")
+  @ResponseStatus(HttpStatus.OK)
+  public void requestNumber(@RequestBody @Valid IdRequest id) {
+    userService.requestNumber(id.getId());
+  }
+
+  @PostMapping("/request-email")
+  @ResponseStatus(HttpStatus.OK)
+  public void requestEmail(@RequestBody @Valid IdRequest id) {
+    userService.requestEmail(id.getId());
+  }
 }

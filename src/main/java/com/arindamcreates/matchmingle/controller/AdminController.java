@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Email;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -40,5 +41,11 @@ public class AdminController {
   public UserResponseForAdmin getUserByEmail(
       @RequestParam @Email(message = "Invalid email format") String email) {
     return adminService.findUserByEmail(email);
+  }
+
+  @DeleteMapping("/delete-user")
+  @ResponseStatus(HttpStatus.OK)
+  public void deleteUser(@RequestBody @Valid IdRequest idRequest) {
+    adminService.deleteUserWithBatchProcessing(idRequest.getId());
   }
 }
